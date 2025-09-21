@@ -7,12 +7,20 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
-<!-- Leaflet MarkerCluster CSS -->
+<!-- MarkerCluster CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
 
 <style>
   #map { height: 100vh; width: 100%; }
+  .info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+  }
 </style>
 </head>
 <body>
@@ -33,51 +41,94 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-let markers = L.markerClusterGroup(); // 使用 MarkerCluster
+let markers = L.markerClusterGroup(); 
 map.addLayer(markers);
 
-// 根據事件類型設定顏色
-function getColor(eventType) {
-  switch(eventType) {
-    case 'Accident': return 'red';
-    case 'Construction': return 'orange';
-    case 'RoadBlock': return 'blue';
-    default: return 'green';
+// === 各類事件圖示 ===
+function getIcon(eventType) {
+  switch (eventType) {
+    case 'Accident': // 車禍
+      return L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+        iconSize: [35, 35],
+        iconAnchor: [17, 35],
+        popupAnchor: [0, -35]
+      });
+    case 'Construction': // 施工
+      return L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252065.png',
+        iconSize: [35, 35],
+        iconAnchor: [17, 35],
+        popupAnchor: [0, -35]
+      });
+    case 'RoadBlock': // 道路封閉
+      return L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png',
+        iconSize: [35, 35],
+        iconAnchor: [17, 35],
+        popupAnchor: [0, -35]
+      });
+    default: // 其他
+      return L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -30]
+      });
   }
 }
 
-// 讀取 JSON 並更新地圖
+// === 更新時間顯示 ===
+const info = L.control({ position: 'bottomleft' });
+
+info.onAdd = function () {
+  this._div = L.DomUtil.create('div', 'info');
+  this.update();
+  return this._div;
+};
+
+info.update = function (time) {
+  this._div.innerHTML = `<b>上次更新：</b><br>${time || '尚未更新'}`;
+};
+
+info.addTo(map);
+
+// === 抓取 JSON 更新地圖 ===
 async function updateMap() {
-  const url = 'kaohsiung_mymaps.json'; // 改成 GitHub Pages 公開 URL
+  const url = 'kaohsiung_mymaps.json'; // 確保 JSON 和 index.html 在同一層
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
 
-    markers.clearLayers(); // 清除舊 markers
+    markers.clearLayers();
 
     data.forEach(item => {
       if (item.Latitude && item.Longitude) {
-        const color = getColor(item.Description || ''); // 以 Description 或 EventType 判斷
-        const marker = L.circleMarker([item.Latitude, item.Longitude], {
-          radius: 8,
-          fillColor: color,
-          color: '#000',
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
+        const marker = L.marker([item.Latitude, item.Longitude], { 
+          icon: getIcon(item.EventType || '') 
         });
-        let popupText = `<b>${item.Title || ''}</b><br>${item.Description || ''}<br>${item.UpdateTime || ''}`;
+        let popupText = `
+          <b>${item.Title || '未命名事件'}</b><br>
+          ${item.Description || ''}<br>
+          <small>${item.UpdateTime || ''}</small>
+        `;
         marker.bindPopup(popupText);
         markers.addLayer(marker);
       }
     });
-    console.log(`[${new Date().toLocaleTimeString()}] 地圖更新完成，事件數量：${data.length}`);
+
+    // 更新時間顯示
+    info.update(new Date().toLocaleString());
+    console.log(`[${new Date().toLocaleTimeString()}] 更新完成，事件數量：${data.length}`);
+
   } catch (err) {
     console.error('更新地圖失敗', err);
+    info.update("資料更新失敗");
   }
 }
 
-// 每分鐘刷新
+// 首次載入 + 每分鐘更新
 updateMap();
 setInterval(updateMap, 60 * 1000);
 </script>
