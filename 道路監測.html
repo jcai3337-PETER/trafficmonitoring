@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>高雄即時交通事件地圖</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<!-- Leaflet MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+
+<style>
+  #map { height: 100vh; width: 100%; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+<script>
+const map = L.map('map').setView([22.6273, 120.3014], 12); // 高雄中心
+
+// 底圖
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+let markers = L.markerClusterGroup(); // 使用 MarkerCluster
+map.addLayer(markers);
+
+// 根據事件類型設定顏色
+function getColor(eventType) {
+  switch(eventType) {
+    case 'Accident': return 'red';
+    case 'Construction': return 'orange';
+    case 'RoadBlock': return 'blue';
+    default: return 'green';
+  }
+}
+
+// 讀取 JSON 並更新地圖
+async function updateMap() {
+  const url = 'kaohsiung_mymaps.json'; // 改成 GitHub Pages 公開 URL
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    markers.clearLayers(); // 清除舊 markers
+
+    data.forEach(item => {
+      if (item.Latitude && item.Longitude) {
+        const color = getColor(item.Description || ''); // 以 Description 或 EventType 判斷
+        const marker = L.circleMarker([item.Latitude, item.Longitude], {
+          radius: 8,
+          fillColor: color,
+          color: '#000',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+        });
+        let popupText = `<b>${item.Title || ''}</b><br>${item.Description || ''}<br>${item.UpdateTime || ''}`;
+        marker.bindPopup(popupText);
+        markers.addLayer(marker);
+      }
+    });
+    console.log(`[${new Date().toLocaleTimeString()}] 地圖更新完成，事件數量：${data.length}`);
+  } catch (err) {
+    console.error('更新地圖失敗', err);
+  }
+}
+
+// 每分鐘刷新
+updateMap();
+setInterval(updateMap, 60 * 1000);
+</script>
+
+</body>
+</html>
