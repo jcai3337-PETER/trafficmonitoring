@@ -2,50 +2,44 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>高雄交通事件地圖 (Leaflet)</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <title>高雄道路監測地圖</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-sA+e2j6e9gZh+vDxn8xvGCRuR1g6+rihH8v+Rk3sl6M="
+          crossorigin=""/>
     <style>
         #map { height: 100vh; width: 100%; }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+<div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-    // 建立地圖
-    const map = L.map('map').setView([22.6273, 120.3014], 12); // 高雄中心
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-oC7N0wV6uZ0x4rB5K1nYBhwvX1xUyQjC1fWb0dGZC4M="
+        crossorigin=""></script>
 
-    // 加入 OpenStreetMap 瓦片
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+<script>
+// 直接嵌入 JSON 資料
+const trafficData = [
+    {"EventID":"397290000H_001-01-153268","Description":"高雄市左營區左營大路和左楠路發生交通事故","Latitude":22.69919,"Longitude":120.30273,"UpdateTime":"2025-09-25T23:11:01"},
+    {"EventID":"397290000H_001-01-153269","Description":"高雄市左營區華夏路539號發生交通事故","Latitude":22.6797952,"Longitude":120.3048122,"UpdateTime":"2025-09-25T23:11:01"}
+];
 
-    // JSON 資料 URL
-    const jsonURL = "https://raw.githubusercontent.com/jcai3337-PETER/trafficmonitoring/main/data/kaohsiung_traffic.json";
+// 初始化地圖
+const map = L.map('map').setView([22.6273, 120.3014], 12);
 
-    fetch(jsonURL)
-        .then(res => res.json())
-        .then(data => {
-            const seen = new Set(); // 避免重複 marker
+// 使用 OpenStreetMap 圖資
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-            data.forEach(item => {
-                const lat = item.Latitude;
-                const lng = item.Longitude;
-                const desc = item.Description || "無描述";
-
-                if (!lat || !lng) return;
-
-                // 避免重複經緯度
-                const key = `${lat},${lng}`;
-                if (seen.has(key)) return;
-                seen.add(key);
-
-                const marker = L.marker([lat, lng]).addTo(map);
-                marker.bindPopup(`<strong>${desc}</strong><br>事件ID: ${item.EventID}<br>更新時間: ${item.UpdateTime}`);
-            });
-        })
-        .catch(err => console.error("讀取 JSON 失敗:", err));
-    </script>
+// 加入標記
+trafficData.forEach(item => {
+    if (item.Latitude && item.Longitude) {
+        L.marker([item.Latitude, item.Longitude])
+            .addTo(map)
+            .bindPopup(`<strong>${item.Description}</strong><br>ID: ${item.EventID}<br>更新: ${item.UpdateTime}`);
+    }
+});
+</script>
 </body>
 </html>
