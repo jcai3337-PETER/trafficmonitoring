@@ -13,18 +13,17 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+// 初始化地圖
 let map = L.map('map').setView([23.7, 121], 7);
-
-// 加入 OpenStreetMap 圖資
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
-let markersMap = new Map(); // 經緯度當 key，值是事件陣列
+let markersMap = new Map(); // 經緯度作 key，值是事件陣列
 let bounds = L.latLngBounds(); // 用來自動縮放地圖
 
-// 讀 JSON
-fetch("output/merged.json")
+// 讀取 JSON，路徑要對應 GitHub Pages 上的檔案
+fetch("merged.json")  // 如果放 docs/ 就改成 "docs/merged.json"
   .then(res => res.json())
   .then(data => {
     data.forEach(item => {
@@ -33,23 +32,21 @@ fetch("output/merged.json")
       if (isNaN(lat) || isNaN(lng)) return;
 
       let key = `${lat},${lng}`;
-
-      if (!markersMap.has(key)) {
-        markersMap.set(key, []);
-      }
+      if (!markersMap.has(key)) markersMap.set(key, []);
       markersMap.get(key).push(item);
 
-      bounds.extend([lat, lng]); // 更新地圖邊界
+      bounds.extend([lat, lng]);
     });
 
     // 建立 Marker
     markersMap.forEach((events, key) => {
       let [lat, lng] = key.split(",").map(Number);
-
       let marker = L.marker([lat, lng]).addTo(map);
 
-      // 將同位置所有事件合併顯示在 popup
-      let popupContent = events.map(e => `<strong>${e.Description || "無描述"}</strong><br>更新時間: ${e.UpdateTime || ""}`).join("<hr>");
+      // 合併同位置事件顯示 popup
+      let popupContent = events.map(e =>
+        `<strong>${e.Description || "無描述"}</strong><br>更新時間: ${e.UpdateTime || ""}`
+      ).join("<hr>");
       marker.bindPopup(popupContent);
     });
 
