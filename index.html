@@ -1,58 +1,64 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <title>道路監測地圖</title>
-    <style>
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>道路監測地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  #map { height: 100vh; width: 100%; }
+</style>
 </head>
 <body>
-    <div id="map"></div>
+<div id="map"></div>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
-    <script>
-    let map;
-    let markers = [];
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([23.7, 121], 7);
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-            center: { lat: 23.7, lng: 121 }, // 台灣中心
-            zoom: 7
-        });
+// 加入 OpenStreetMap 圖資
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+}).addTo(map);
 
-        fetch("output/merged.json") // 改成 JSON
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(item => {
-                    let lat = parseFloat(item.Latitude);
-                    let lng = parseFloat(item.Longitude);
-                    let desc = item.Description || "無描述";
+let markersMap = new Map(); // 經緯度當 key，值是事件陣列
+let bounds = L.latLngBounds(); // 用來自動縮放地圖
 
-                    // 如果經緯度不存在就跳過
-                    if (isNaN(lat) || isNaN(lng)) return;
+// 讀 JSON
+fetch("output/merged.json")
+  .then(res => res.json())
+  .then(data => {
+    data.forEach(item => {
+      let lat = parseFloat(item.Latitude);
+      let lng = parseFloat(item.Longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
 
-                    // 避免重複 marker
-                    let exists = markers.find(m => 
-                        m.getPosition().lat() === lat && m.getPosition().lng() === lng
-                    );
-                    if (!exists) {
-                        let marker = new google.maps.Marker({
-                            position: { lat: lat, lng: lng },
-                            map: map,
-                            title: desc
-                        });
-                        markers.push(marker);
-                    }
-                });
-            })
-            .catch(err => console.error("讀取 JSON 失敗:", err));
+      let key = `${lat},${lng}`;
+
+      if (!markersMap.has(key)) {
+        markersMap.set(key, []);
+      }
+      markersMap.get(key).push(item);
+
+      bounds.extend([lat, lng]); // 更新地圖邊界
+    });
+
+    // 建立 Marker
+    markersMap.forEach((events, key) => {
+      let [lat, lng] = key.split(",").map(Number);
+
+      let marker = L.marker([lat, lng]).addTo(map);
+
+      // 將同位置所有事件合併顯示在 popup
+      let popupContent = events.map(e => `<strong>${e.Description || "無描述"}</strong><br>更新時間: ${e.UpdateTime || ""}`).join("<hr>");
+      marker.bindPopup(popupContent);
+    });
+
+    // 自動縮放地圖到所有 Marker
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
-
-    window.onload = initMap;
-    </script>
+  })
+  .catch(err => console.error("讀取 JSON 失敗:", err));
+</script>
 </body>
 </html>
