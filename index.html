@@ -1,137 +1,63 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>高雄即時交通事件地圖</title>
-
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
-<!-- MarkerCluster CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
-
-<style>
-  #map { height: 100vh; width: 100%; }
-  .info {
-    padding: 6px 8px;
-    font: 14px/16px Arial, Helvetica, sans-serif;
-    background: white;
-    background: rgba(255,255,255,0.8);
-    box-shadow: 0 0 15px rgba(0,0,0,0.2);
-    border-radius: 5px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <title>道路監測地圖</title>
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
+    <div id="map"></div>
 
-<div id="map"></div>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+    <script>
+    let map;
+    let markers = [];
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-<!-- MarkerCluster JS -->
-<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
-
-<script>
-const map = L.map('map').setView([22.6273, 120.3014], 12); // 高雄中心
-
-// 底圖
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
-}).addTo(map);
-
-let markers = L.markerClusterGroup(); 
-map.addLayer(markers);
-
-// === 各類事件圖示 ===
-function getIcon(eventType) {
-  switch (eventType) {
-    case 'Accident': // 車禍
-      return L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
-        iconSize: [35, 35],
-        iconAnchor: [17, 35],
-        popupAnchor: [0, -35]
-      });
-    case 'Construction': // 施工
-      return L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252065.png',
-        iconSize: [35, 35],
-        iconAnchor: [17, 35],
-        popupAnchor: [0, -35]
-      });
-    case 'RoadBlock': // 道路封閉
-      return L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/149/149060.png',
-        iconSize: [35, 35],
-        iconAnchor: [17, 35],
-        popupAnchor: [0, -35]
-      });
-    default: // 其他
-      return L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-        iconSize: [30, 30],
-        iconAnchor: [15, 30],
-        popupAnchor: [0, -30]
-      });
-  }
-}
-
-// === 更新時間顯示 ===
-const info = L.control({ position: 'bottomleft' });
-
-info.onAdd = function () {
-  this._div = L.DomUtil.create('div', 'info');
-  this.update();
-  return this._div;
-};
-
-info.update = function (time) {
-  this._div.innerHTML = `<b>上次更新：</b><br>${time || '尚未更新'}`;
-};
-
-info.addTo(map);
-
-// === 抓取 JSON 更新地圖 ===
-async function updateMap() {
-  const url = 'kaohsiung_mymaps.json'; // 確保 JSON 和 index.html 在同一層
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(res.statusText);
-    const data = await res.json();
-
-    markers.clearLayers();
-
-    data.forEach(item => {
-      if (item.Latitude && item.Longitude) {
-        const marker = L.marker([item.Latitude, item.Longitude], { 
-          icon: getIcon(item.EventType || '') 
+    function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+            center: { lat: 23.7, lng: 121 }, // 台灣中心
+            zoom: 7
         });
-        let popupText = `
-          <b>${item.Title || '未命名事件'}</b><br>
-          ${item.Description || ''}<br>
-          <small>${item.UpdateTime || ''}</small>
-        `;
-        marker.bindPopup(popupText);
-        markers.addLayer(marker);
-      }
-    });
 
-    // 更新時間顯示
-    info.update(new Date().toLocaleString());
-    console.log(`[${new Date().toLocaleTimeString()}] 更新完成，事件數量：${data.length}`);
+        fetch("output/merged.csv")
+            .then(response => response.text())
+            .then(data => {
+                let rows = data.split("\n").map(r => r.split(","));
+                let headers = rows[0];
+                let latIdx = headers.indexOf("Latitude");
+                let lngIdx = headers.indexOf("Longitude");
+                let descIdx = headers.indexOf("Description");
 
-  } catch (err) {
-    console.error('更新地圖失敗', err);
-    info.update("資料更新失敗");
-  }
-}
+                for (let i = 1; i < rows.length; i++) {
+                    let row = rows[i];
+                    let lat = parseFloat(row[latIdx]);
+                    let lng = parseFloat(row[lngIdx]);
+                    if (isNaN(lat) || isNaN(lng)) continue;
 
-// 首次載入 + 每分鐘更新
-updateMap();
-setInterval(updateMap, 60 * 1000);
-</script>
+                    let desc = descIdx !== -1 ? row[descIdx] : "無描述";
 
+                    // 避免重複 marker
+                    let exists = markers.find(m => 
+                        m.getPosition().lat() === lat && m.getPosition().lng() === lng
+                    );
+                    if (!exists) {
+                        let marker = new google.maps.Marker({
+                            position: { lat: lat, lng: lng },
+                            map: map,
+                            title: desc
+                        });
+                        markers.push(marker);
+                    }
+                }
+            });
+    }
+
+    window.onload = initMap;
+    </script>
 </body>
 </html>
