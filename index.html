@@ -1,61 +1,51 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>道路監測地圖</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<style>
-  #map { height: 100vh; width: 100%; }
-</style>
+    <meta charset="UTF-8">
+    <title>高雄交通事件地圖 (Leaflet)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100%; }
+    </style>
 </head>
 <body>
-<div id="map"></div>
+    <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// 初始化地圖
-let map = L.map('map').setView([23.7, 121], 7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-}).addTo(map);
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+    // 建立地圖
+    const map = L.map('map').setView([22.6273, 120.3014], 12); // 高雄中心
 
-let markersMap = new Map(); // 經緯度作 key，值是事件陣列
-let bounds = L.latLngBounds(); // 用來自動縮放地圖
+    // 加入 OpenStreetMap 瓦片
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-// 讀取 JSON，路徑要對應 GitHub Pages 上的檔案
-fetch("merged.json")  // 如果放 docs/ 就改成 "docs/merged.json"
-  .then(res => res.json())
-  .then(data => {
-    data.forEach(item => {
-      let lat = parseFloat(item.Latitude);
-      let lng = parseFloat(item.Longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
+    // JSON 資料 URL
+    const jsonURL = "https://raw.githubusercontent.com/jcai3337-PETER/trafficmonitoring/main/data/kaohsiung_traffic.json";
 
-      let key = `${lat},${lng}`;
-      if (!markersMap.has(key)) markersMap.set(key, []);
-      markersMap.get(key).push(item);
+    fetch(jsonURL)
+        .then(res => res.json())
+        .then(data => {
+            const seen = new Set(); // 避免重複 marker
 
-      bounds.extend([lat, lng]);
-    });
+            data.forEach(item => {
+                const lat = item.Latitude;
+                const lng = item.Longitude;
+                const desc = item.Description || "無描述";
 
-    // 建立 Marker
-    markersMap.forEach((events, key) => {
-      let [lat, lng] = key.split(",").map(Number);
-      let marker = L.marker([lat, lng]).addTo(map);
+                if (!lat || !lng) return;
 
-      // 合併同位置事件顯示 popup
-      let popupContent = events.map(e =>
-        `<strong>${e.Description || "無描述"}</strong><br>更新時間: ${e.UpdateTime || ""}`
-      ).join("<hr>");
-      marker.bindPopup(popupContent);
-    });
+                // 避免重複經緯度
+                const key = `${lat},${lng}`;
+                if (seen.has(key)) return;
+                seen.add(key);
 
-    // 自動縮放地圖到所有 Marker
-    if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  })
-  .catch(err => console.error("讀取 JSON 失敗:", err));
-</script>
+                const marker = L.marker([lat, lng]).addTo(map);
+                marker.bindPopup(`<strong>${desc}</strong><br>事件ID: ${item.EventID}<br>更新時間: ${item.UpdateTime}`);
+            });
+        })
+        .catch(err => console.error("讀取 JSON 失敗:", err));
+    </script>
 </body>
 </html>
