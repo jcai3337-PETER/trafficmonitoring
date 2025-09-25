@@ -24,22 +24,16 @@
             zoom: 7
         });
 
-        fetch("output/merged.csv")
-            .then(response => response.text())
+        fetch("output/merged.json") // 改成 JSON
+            .then(response => response.json())
             .then(data => {
-                let rows = data.split("\n").map(r => r.split(","));
-                let headers = rows[0];
-                let latIdx = headers.indexOf("Latitude");
-                let lngIdx = headers.indexOf("Longitude");
-                let descIdx = headers.indexOf("Description");
+                data.forEach(item => {
+                    let lat = parseFloat(item.Latitude);
+                    let lng = parseFloat(item.Longitude);
+                    let desc = item.Description || "無描述";
 
-                for (let i = 1; i < rows.length; i++) {
-                    let row = rows[i];
-                    let lat = parseFloat(row[latIdx]);
-                    let lng = parseFloat(row[lngIdx]);
-                    if (isNaN(lat) || isNaN(lng)) continue;
-
-                    let desc = descIdx !== -1 ? row[descIdx] : "無描述";
+                    // 如果經緯度不存在就跳過
+                    if (isNaN(lat) || isNaN(lng)) return;
 
                     // 避免重複 marker
                     let exists = markers.find(m => 
@@ -53,8 +47,9 @@
                         });
                         markers.push(marker);
                     }
-                }
-            });
+                });
+            })
+            .catch(err => console.error("讀取 JSON 失敗:", err));
     }
 
     window.onload = initMap;
