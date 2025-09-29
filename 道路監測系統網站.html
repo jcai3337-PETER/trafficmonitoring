@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>高雄道路監測地圖</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        #map { height: 100vh; width: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 交通事件資料
+const trafficData = [
+    {"EventID":"397290000H_001-01-153268","Description":"高雄市左營區左營大路和左楠路發生交通事故","Latitude":22.69919,"Longitude":120.30273,"UpdateTime":"2025-09-25T23:11:01"},
+    {"EventID":"397290000H_001-01-153269","Description":"高雄市左營區華夏路539號發生交通事故","Latitude":22.6797952,"Longitude":120.3048122,"UpdateTime":"2025-09-25T23:11:01"}
+];
+
+// 初始化地圖
+const map = L.map('map').setView([22.6273, 120.3014], 12);
+
+// 使用 OpenStreetMap 圖資
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// 建立 marker 陣列
+const markers = trafficData.map(item => {
+    return L.marker([item.Latitude, item.Longitude])
+        .bindPopup(`<strong>${item.Description}</strong><br>ID: ${item.EventID}<br>更新: ${item.UpdateTime}`);
+});
+
+// 建立群組並加到地圖
+const group = L.featureGroup(markers).addTo(map);
+
+// 自動縮放到所有標記
+map.fitBounds(group.getBounds());
+</script>
+</body>
+</html>
