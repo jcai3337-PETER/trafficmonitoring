@@ -20,13 +20,17 @@
             font-size: 14px;
             z-index: 1000;
         }
-        #no-coords h4 { margin: 0 0 5px 0; font-size: 14px; }
-        #no-coords p { margin: 0 0 3px 0; }
+        #no-coords p {
+            margin: 0 0 3px 0;
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="no-coords"><strong>未填經緯度事件：</strong></div>
+<div id="no-coords"><strong>無經緯度事件：</strong></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -36,21 +40,24 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// GitHub raw URL
-const jsonURL = 'https://raw.githubusercontent.com/jcai3337-PETER/trafficmonitoring/main/kaohsiung_traffic.json';
+// GitHub raw URL (改成你的帳號)
+const jsonURL = 'https://raw.githubusercontent.com/<GitHub使用者名稱>/trafficmonitoring/main/kaohsiung_traffic.json';
 
 // 容器
 const noCoordsDiv = document.getElementById('no-coords');
+const markerMap = new Map(); // EventID -> marker
 
 fetch(jsonURL)
-    .then(res => res.json())
+    .then(res => {
+        if(!res.ok) throw new Error('HTTP error ' + res.status);
+        return res.json();
+    })
     .then(data => {
         const markers = [];
-        let noCoordsCount = 0;
 
         data.forEach(item => {
             if(item.Latitude && item.Longitude) {
-                // 有經緯度才加 marker
+                // 有經緯度
                 let color = 'blue';
                 if(item.EventType === 1) color = 'red';
 
@@ -67,27 +74,26 @@ fetch(jsonURL)
                     更新時間: ${item.UpdateTime}<br>
                     清除: ${item.IsCleared ? '是' : '否'}
                 `);
+                marker.addTo(map);
                 markers.push(marker);
+                markerMap.set(item.EventID, marker);
             } else {
-                // 無經緯度事件顯示在右下角
+                // 無經緯度事件
                 const p = document.createElement('p');
                 p.textContent = `ID: ${item.EventID}, ${item.Description}`;
+                p.addEventListener('click', () => {
+                    alert('此事件沒有經緯度，無法定位地圖');
+                });
                 noCoordsDiv.appendChild(p);
-                noCoordsCount++;
             }
         });
 
         if(markers.length > 0){
-            const group = L.featureGroup(markers).addTo(map);
+            const group = L.featureGroup(markers);
             map.fitBounds(group.getBounds());
-        }
-
-        if(noCoordsCount === 0){
-            noCoordsDiv.style.display = 'none'; // 沒有無經緯度事件就隱藏
         }
     })
     .catch(err => console.error('讀取 JSON 失敗:', err));
 </script>
 </body>
 </html>
-
