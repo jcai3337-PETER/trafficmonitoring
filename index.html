@@ -7,38 +7,86 @@
     <style>
         #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
         body { margin: 0; padding: 0; }
+        #no-coords {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        #no-coords h4 { margin: 0 0 5px 0; font-size: 14px; }
+        #no-coords p { margin: 0 0 3px 0; }
     </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="no-coords"><strong>未填經緯度事件：</strong></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // 初始化地圖
 const map = L.map('map').setView([22.6273, 120.3014], 12);
-
-// 使用 OpenStreetMap 圖資
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// 讀取 GitHub 上的 JSON
-fetch('https://raw.githubusercontent.com/username/kaohsiung-map/main/traffic.json')
-    .then(response => response.json())
-    .then(trafficData => {
-        // 建立 marker
-        const markers = trafficData.map(item => {
-            return L.marker([item.Latitude, item.Longitude])
-                .bindPopup(`<strong>${item.Description}</strong><br>ID: ${item.EventID}<br>更新: ${item.UpdateTime}`);
+// GitHub raw URL
+const jsonURL = 'https://raw.githubusercontent.com/<GitHub使用者名稱>/trafficmonitoring/main/kaohsiung_traffic.json';
+
+// 容器
+const noCoordsDiv = document.getElementById('no-coords');
+
+fetch(jsonURL)
+    .then(res => res.json())
+    .then(data => {
+        const markers = [];
+        let noCoordsCount = 0;
+
+        data.forEach(item => {
+            if(item.Latitude && item.Longitude) {
+                // 有經緯度才加 marker
+                let color = 'blue';
+                if(item.EventType === 1) color = 'red';
+
+                const marker = L.circleMarker([item.Latitude, item.Longitude], {
+                    radius: 8,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.7
+                }).bindPopup(`
+                    <strong>${item.Description}</strong><br>
+                    ID: ${item.EventID}<br>
+                    類型: ${item.EventTitle}<br>
+                    發布時間: ${item.PublishTime}<br>
+                    更新時間: ${item.UpdateTime}<br>
+                    清除: ${item.IsCleared ? '是' : '否'}
+                `);
+                markers.push(marker);
+            } else {
+                // 無經緯度事件顯示在右下角
+                const p = document.createElement('p');
+                p.textContent = `ID: ${item.EventID}, ${item.Description}`;
+                noCoordsDiv.appendChild(p);
+                noCoordsCount++;
+            }
         });
 
-        // 建立群組並加到地圖
-        const group = L.featureGroup(markers).addTo(map);
+        if(markers.length > 0){
+            const group = L.featureGroup(markers).addTo(map);
+            map.fitBounds(group.getBounds());
+        }
 
-        // 自動縮放到所有標記
-        map.fitBounds(group.getBounds());
+        if(noCoordsCount === 0){
+            noCoordsDiv.style.display = 'none'; // 沒有無經緯度事件就隱藏
+        }
     })
-    .catch(err => console.error('讀取 JSON 發生錯誤:', err));
+    .catch(err => console.error('讀取 JSON 失敗:', err));
 </script>
 </body>
 </html>
