@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>即時交通事件地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
   #map { height: 600px; width: 100%; }
   #event-list { max-height: 300px; overflow-y: auto; margin-top: 10px; }
@@ -17,9 +18,13 @@
 <div id="last-update">上次更新時間: --</div>
 <div id="event-list"></div>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-let map;
+let map = L.map('map').setView([23.7, 120.9], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
 let markers = [];
 
 // 事件類型對應顏色
@@ -32,16 +37,6 @@ const eventColors = {
   "其他事件": "blue"
 };
 
-// 初始化地圖
-function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 23.7, lng: 120.9 },
-    zoom: 7
-  });
-  loadEvents(); // 初始載入
-  setInterval(loadEvents, 10000); // 每 10 秒更新
-}
-
 // 載入 JSON 事件資料
 async function loadEvents() {
   try {
@@ -49,7 +44,7 @@ async function loadEvents() {
     const events = await response.json();
 
     // 清除舊標記
-    markers.forEach(m => m.setMap(null));
+    markers.forEach(m => map.removeLayer(m));
     markers = [];
 
     const eventListDiv = document.getElementById('event-list');
@@ -58,49 +53,44 @@ async function loadEvents() {
     let lastUpdateTime = "--";
 
     events.forEach(event => {
-      // 記錄最新時間
       if(event.UpdateTime) lastUpdateTime = event.UpdateTime;
 
-      if (event.lat && event.lng) {
+      const lat = event.lat || event.Latitude;
+      const lng = event.lng || event.Longitude;
+
+      if(lat && lng) {
         const color = eventColors[event.EventTypeName] || "gray";
 
-        const marker = new google.maps.Marker({
-          position: { lat: event.lat, lng: event.lng },
-          map: map,
-          title: event.comment,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: color,
-            fillOpacity: 0.8,
-            strokeWeight: 1,
-            strokeColor: "#000"
-          }
-        });
+        const marker = L.circleMarker([lat, lng], {
+          radius: 8,
+          fillColor: color,
+          color: "#000",
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(map);
 
-        const infoWindow = new google.maps.InfoWindow({
-          content: `<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment}<br>${event.time}`
-        });
-
-        marker.addListener('click', () => infoWindow.open(map, marker));
+        marker.bindPopup(`<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment || event.Description}<br>${event.time || event.PublishTime}`);
         markers.push(marker);
       }
 
       // 事件列表
       const div = document.createElement('div');
       div.className = 'event-item';
-      div.innerHTML = `<span style="color:${eventColors[event.EventTypeName]||'gray'}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment} <small>(${event.time})</small>`;
+      div.innerHTML = `<span style="color:${eventColors[event.EventTypeName]||'gray'}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment || event.Description} <small>(${event.time || event.PublishTime})</small>`;
       eventListDiv.appendChild(div);
     });
 
     document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
+
   } catch (err) {
     console.error("載入事件資料失敗:", err);
   }
 }
 
-// 啟動地圖
-initMap();
+// 初始載入 + 每 10 秒更新
+loadEvents();
+setInterval(loadEvents, 10000);
 </script>
 </body>
 </html>
