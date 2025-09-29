@@ -1,112 +1,108 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>台灣道路監測地圖</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <style>
-        #map { height: 100vh; width: 100%; margin: 0; padding: 0; }
-        body { margin: 0; padding: 0; }
-        #no-coords {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            max-width: 300px;
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(255,255,255,0.9);
-            padding: 10px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-            z-index: 1000;
-        }
-        #no-coords p {
-            margin: 0 0 3px 0;
-            cursor: pointer;
-            color: blue;
-            text-decoration: underline;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>即時交通事件地圖</title>
+<style>
+  #map { height: 600px; width: 100%; }
+  #event-list { max-height: 300px; overflow-y: auto; margin-top: 10px; }
+  .event-item { padding: 5px; border-bottom: 1px solid #ccc; }
+  #last-update { margin-top: 10px; font-weight: bold; }
+</style>
 </head>
 <body>
+
+<h2>台灣即時交通事件</h2>
 <div id="map"></div>
-<div id="no-coords"><strong>無經緯度事件：</strong></div>
+<div id="last-update">上次更新時間: --</div>
+<div id="event-list"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
 <script>
-const map = L.map('map').setView([23.5, 121], 7); // 台灣中心
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+let map;
+let markers = [];
 
-// 改成你的 GitHub Pages URL，避免 CORS
-const jsonURL = 'https://jcai3337-PETER.github.io/trafficmonitoring/taiwan_traffic.json';
+// 定義事件類型對應顏色
+const eventColors = {
+  "t1": "red",    // 交通事故
+  "t2": "orange", // 施工路段
+  "t3": "purple", // 交通管制/改道
+  "t4": "yellow", // 道路堵塞
+  "t5": "brown",  // 掉落物
+  "t6": "blue"    // 其他事件
+};
 
-const noCoordsDiv = document.getElementById('no-coords');
-const markerMap = new Map(); // EventID -> marker
-
-// 解析 Positions 字串
-function parsePositions(posStr){
-    if(typeof posStr === "string" && posStr.startsWith("POINT")){
-        const parts = posStr.replace("POINT(", "").replace(")", "").split(" ");
-        const lon = parseFloat(parts[0]);
-        const lat = parseFloat(parts[1]);
-        return [lat, lon];
-    }
-    return [null, null];
+// 初始化地圖
+function initMap() {
+  map = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 23.7, lng: 120.9 },
+    zoom: 7
+  });
+  loadEvents(); // 初始載入
+  setInterval(loadEvents, 10000); // 每 10 秒更新
 }
 
-fetch(jsonURL)
-.then(res => {
-    if(!res.ok) throw new Error('HTTP error ' + res.status);
-    return res.json();
-})
-.then(data => {
-    const markers = [];
+// 載入 JSON 事件資料
+async function loadEvents() {
+  try {
+    const response = await fetch('data/taiwan_traffic.json');
+    const events = await response.json();
 
-    data.forEach(item => {
-        let lat = null, lon = null;
-        if(item.Positions){
-            [lat, lon] = parsePositions(item.Positions);
-        }
+    // 清除舊標記
+    markers.forEach(m => m.setMap(null));
+    markers = [];
 
-        if(lat && lon){
-            // 有經緯度
-            let color = 'blue';
-            if(item.EventType === 1) color = 'red';
-            const marker = L.circleMarker([lat, lon], {
-                radius: 8,
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.7
-            }).bindPopup(`
-                <strong>${item.Description}</strong><br>
-                ID: ${item.EventID}<br>
-                類型: ${item.EventTitle}<br>
-                發布時間: ${item.PublishTime}<br>
-                更新時間: ${item.UpdateTime || ''}<br>
-                清除: ${item.IsCleared ? '是' : '否'}
-            `);
-            marker.addTo(map);
-            markers.push(marker);
-            markerMap.set(item.EventID, marker);
-        } else {
-            // 無經緯度事件
-            const p = document.createElement('p');
-            p.textContent = `ID: ${item.EventID}, ${item.Description}`;
-            p.addEventListener('click', () => {
-                alert('此事件沒有經緯度，無法定位地圖');
-            });
-            noCoordsDiv.appendChild(p);
-        }
+    const eventListDiv = document.getElementById('event-list');
+    eventListDiv.innerHTML = '';
+
+    let lastUpdateTime = "--";
+
+    events.forEach(event => {
+      // 記錄最新 UpdateTime
+      if(event.UpdateTime) {
+        lastUpdateTime = event.UpdateTime;
+      }
+
+      if (event.Latitude && event.Longitude) {
+        const color = eventColors[event.EventType] || "gray";
+
+        const marker = new google.maps.Marker({
+          position: { lat: event.Latitude, lng: event.Longitude },
+          map: map,
+          title: event.EventTitle,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: color,
+            fillOpacity: 0.8,
+            strokeWeight: 1,
+            strokeColor: "#000"
+          }
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<b>${event.EventType || "未知事件"}</b><br>${event.Description}<br>${event.PublishTime}`
+        });
+
+        marker.addListener('click', () => infoWindow.open(map, marker));
+        markers.push(marker);
+      }
+
+      // 事件列表
+      const div = document.createElement('div');
+      div.className = 'event-item';
+      div.innerHTML = `<span style="color:${eventColors[event.EventType]||'gray'}"><b>${event.EventType || '未知'}</b></span>: ${event.Description}`;
+      eventListDiv.appendChild(div);
     });
 
-    if(markers.length > 0){
-        const group = L.featureGroup(markers);
-        map.fitBounds(group.getBounds());
-    }
-})
-.catch(err => console.error('讀取 JSON 失敗:', err));
+    document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
+  } catch (err) {
+    console.error("載入事件資料失敗:", err);
+  }
+}
+
+// 啟動地圖
+initMap();
 </script>
 </body>
 </html>
