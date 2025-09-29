@@ -34,67 +34,79 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// 初始化地圖
-const map = L.map('map').setView([22.6273, 120.3014], 12);
+const map = L.map('map').setView([23.5, 121], 7); // 台灣中心
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// GitHub raw URL (改成你的帳號)
-const jsonURL = 'https://raw.githubusercontent.com/jcai3337-PETER/trafficmonitoring/main/taiwan_traffic.json';
+// 改成你的 GitHub Pages URL，避免 CORS
+const jsonURL = 'https://jcai3337-PETER.github.io/trafficmonitoring/taiwan_traffic.json';
 
-// 容器
 const noCoordsDiv = document.getElementById('no-coords');
 const markerMap = new Map(); // EventID -> marker
 
+// 解析 Positions 字串
+function parsePositions(posStr){
+    if(typeof posStr === "string" && posStr.startsWith("POINT")){
+        const parts = posStr.replace("POINT(", "").replace(")", "").split(" ");
+        const lon = parseFloat(parts[0]);
+        const lat = parseFloat(parts[1]);
+        return [lat, lon];
+    }
+    return [null, null];
+}
+
 fetch(jsonURL)
-    .then(res => {
-        if(!res.ok) throw new Error('HTTP error ' + res.status);
-        return res.json();
-    })
-    .then(data => {
-        const markers = [];
+.then(res => {
+    if(!res.ok) throw new Error('HTTP error ' + res.status);
+    return res.json();
+})
+.then(data => {
+    const markers = [];
 
-        data.forEach(item => {
-            if(item.Latitude && item.Longitude) {
-                // 有經緯度
-                let color = 'blue';
-                if(item.EventType === 1) color = 'red';
-
-                const marker = L.circleMarker([item.Latitude, item.Longitude], {
-                    radius: 8,
-                    color: color,
-                    fillColor: color,
-                    fillOpacity: 0.7
-                }).bindPopup(`
-                    <strong>${item.Description}</strong><br>
-                    ID: ${item.EventID}<br>
-                    類型: ${item.EventTitle}<br>
-                    發布時間: ${item.PublishTime}<br>
-                    更新時間: ${item.UpdateTime}<br>
-                    清除: ${item.IsCleared ? '是' : '否'}
-                `);
-                marker.addTo(map);
-                markers.push(marker);
-                markerMap.set(item.EventID, marker);
-            } else {
-                // 無經緯度事件
-                const p = document.createElement('p');
-                p.textContent = `ID: ${item.EventID}, ${item.Description}`;
-                p.addEventListener('click', () => {
-                    alert('此事件沒有經緯度，無法定位地圖');
-                });
-                noCoordsDiv.appendChild(p);
-            }
-        });
-
-        if(markers.length > 0){
-            const group = L.featureGroup(markers);
-            map.fitBounds(group.getBounds());
+    data.forEach(item => {
+        let lat = null, lon = null;
+        if(item.Positions){
+            [lat, lon] = parsePositions(item.Positions);
         }
-    })
-    .catch(err => console.error('讀取 JSON 失敗:', err));
+
+        if(lat && lon){
+            // 有經緯度
+            let color = 'blue';
+            if(item.EventType === 1) color = 'red';
+            const marker = L.circleMarker([lat, lon], {
+                radius: 8,
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.7
+            }).bindPopup(`
+                <strong>${item.Description}</strong><br>
+                ID: ${item.EventID}<br>
+                類型: ${item.EventTitle}<br>
+                發布時間: ${item.PublishTime}<br>
+                更新時間: ${item.UpdateTime || ''}<br>
+                清除: ${item.IsCleared ? '是' : '否'}
+            `);
+            marker.addTo(map);
+            markers.push(marker);
+            markerMap.set(item.EventID, marker);
+        } else {
+            // 無經緯度事件
+            const p = document.createElement('p');
+            p.textContent = `ID: ${item.EventID}, ${item.Description}`;
+            p.addEventListener('click', () => {
+                alert('此事件沒有經緯度，無法定位地圖');
+            });
+            noCoordsDiv.appendChild(p);
+        }
+    });
+
+    if(markers.length > 0){
+        const group = L.featureGroup(markers);
+        map.fitBounds(group.getBounds());
+    }
+})
+.catch(err => console.error('讀取 JSON 失敗:', err));
 </script>
 </body>
 </html>
-
