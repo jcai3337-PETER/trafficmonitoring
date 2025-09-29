@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>即時交通事件地圖</title>
+<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
   #map { height: 600px; width: 100%; }
@@ -18,6 +19,7 @@
 <div id="last-update">上次更新時間: --</div>
 <div id="event-list"></div>
 
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 let map = L.map('map').setView([23.7, 120.9], 7);
@@ -37,10 +39,10 @@ const eventColors = {
   "其他事件": "blue"
 };
 
-// 載入 JSON 事件資料
+// 載入事件
 async function loadEvents() {
   try {
-    const response = await fetch('data/taiwan_traffic.json');
+    const response = await fetch('https://raw.githubusercontent.com/jcai3337-PETER/trafficmonitoring/main/taiwan_traffic.json');
     const events = await response.json();
 
     // 清除舊標記
@@ -53,42 +55,36 @@ async function loadEvents() {
     let lastUpdateTime = "--";
 
     events.forEach(event => {
-      if(event.UpdateTime) lastUpdateTime = event.UpdateTime;
+      if (!event.lat || !event.lng) return; // 無座標跳過
+      if(event.time) lastUpdateTime = event.time;
 
-      const lat = event.lat || event.Latitude;
-      const lng = event.lng || event.Longitude;
+      const color = eventColors[event.EventTypeName] || "gray";
 
-      if(lat && lng) {
-        const color = eventColors[event.EventTypeName] || "gray";
+      const marker = L.circleMarker([event.lat, event.lng], {
+        radius: 8,
+        color: "#000",
+        weight: 1,
+        fillColor: color,
+        fillOpacity: 0.8
+      }).addTo(map);
 
-        const marker = L.circleMarker([lat, lng], {
-          radius: 8,
-          fillColor: color,
-          color: "#000",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
-        }).addTo(map);
+      marker.bindPopup(`<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment}<br>${event.time}`);
+      markers.push(marker);
 
-        marker.bindPopup(`<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment || event.Description}<br>${event.time || event.PublishTime}`);
-        markers.push(marker);
-      }
-
-      // 事件列表
+      // 列表
       const div = document.createElement('div');
       div.className = 'event-item';
-      div.innerHTML = `<span style="color:${eventColors[event.EventTypeName]||'gray'}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment || event.Description} <small>(${event.time || event.PublishTime})</small>`;
+      div.innerHTML = `<span style="color:${color}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment} <small>(${event.time})</small>`;
       eventListDiv.appendChild(div);
     });
 
     document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
-
   } catch (err) {
     console.error("載入事件資料失敗:", err);
   }
 }
 
-// 初始載入 + 每 10 秒更新
+// 初始載入與定時更新
 loadEvents();
 setInterval(loadEvents, 10000);
 </script>
