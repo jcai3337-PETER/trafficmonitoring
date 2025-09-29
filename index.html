@@ -22,14 +22,14 @@
 let map;
 let markers = [];
 
-// 定義事件類型對應顏色
+// 事件類型對應顏色
 const eventColors = {
-  "t1": "red",    // 交通事故
-  "t2": "orange", // 施工路段
-  "t3": "purple", // 交通管制/改道
-  "t4": "yellow", // 道路堵塞
-  "t5": "brown",  // 掉落物
-  "t6": "blue"    // 其他事件
+  "交通事故": "red",
+  "施工路段": "orange",
+  "交通管制或交通改道": "purple",
+  "道路堵塞": "yellow",
+  "掉落物": "brown",
+  "其他事件": "blue"
 };
 
 // 初始化地圖
@@ -58,18 +58,16 @@ async function loadEvents() {
     let lastUpdateTime = "--";
 
     events.forEach(event => {
-      // 記錄最新 UpdateTime
-      if(event.UpdateTime) {
-        lastUpdateTime = event.UpdateTime;
-      }
+      // 記錄最新時間
+      if(event.UpdateTime) lastUpdateTime = event.UpdateTime;
 
-      if (event.Latitude && event.Longitude) {
-        const color = eventColors[event.EventType] || "gray";
+      if (event.lat && event.lng) {
+        const color = eventColors[event.EventTypeName] || "gray";
 
         const marker = new google.maps.Marker({
-          position: { lat: event.Latitude, lng: event.Longitude },
+          position: { lat: event.lat, lng: event.lng },
           map: map,
-          title: event.EventTitle,
+          title: event.comment,
           icon: {
             path: google.maps.SymbolPath.CIRCLE,
             scale: 8,
@@ -81,7 +79,7 @@ async function loadEvents() {
         });
 
         const infoWindow = new google.maps.InfoWindow({
-          content: `<b>${event.EventType || "未知事件"}</b><br>${event.Description}<br>${event.PublishTime}`
+          content: `<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment}<br>${event.time}`
         });
 
         marker.addListener('click', () => infoWindow.open(map, marker));
@@ -91,7 +89,7 @@ async function loadEvents() {
       // 事件列表
       const div = document.createElement('div');
       div.className = 'event-item';
-      div.innerHTML = `<span style="color:${eventColors[event.EventType]||'gray'}"><b>${event.EventType || '未知'}</b></span>: ${event.Description}`;
+      div.innerHTML = `<span style="color:${eventColors[event.EventTypeName]||'gray'}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment} <small>(${event.time})</small>`;
       eventListDiv.appendChild(div);
     });
 
