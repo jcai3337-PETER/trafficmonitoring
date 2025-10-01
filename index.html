@@ -55,12 +55,12 @@ async function loadEvents() {
     let lastUpdateTime = "--";
 
     events.forEach(event => {
-      if (!event.lat || !event.lng) return; // 無座標跳過
-      if(event.time) lastUpdateTime = event.time;
+      if (!event.Latitude || !event.Longitude) return; // 無座標跳過
+      if(event.UpdateTime) lastUpdateTime = event.UpdateTime;
 
-      const color = eventColors[event.EventTypeName] || "gray";
+      const color = eventColors[event.EventTitle] || "gray";
 
-      const marker = L.circleMarker([event.lat, event.lng], {
+      const marker = L.circleMarker([event.Latitude, event.Longitude], {
         radius: 8,
         color: "#000",
         weight: 1,
@@ -68,13 +68,13 @@ async function loadEvents() {
         fillOpacity: 0.8
       }).addTo(map);
 
-      marker.bindPopup(`<b>${event.EventTypeName || "未知事件"}</b><br>${event.comment}<br>${event.time}`);
+      marker.bindPopup(`<b>${event.EventTitle || "未知事件"}</b><br>${event.Description}<br>${event.UpdateTime}`);
       markers.push(marker);
 
       // 列表
       const div = document.createElement('div');
       div.className = 'event-item';
-      div.innerHTML = `<span style="color:${color}"><b>${event.EventTypeName || '未知'}</b></span>: ${event.comment} <small>(${event.time})</small>`;
+      div.innerHTML = `<span style="color:${color}"><b>${event.EventTitle || '未知'}</b></span>: ${event.Description} <small>(${event.UpdateTime})</small>`;
       eventListDiv.appendChild(div);
     });
 
