@@ -1,51 +1,11 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<title>即時交通事件地圖</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-<style>
-  body { font-family: "Microsoft JhengHei", sans-serif; margin: 20px; }
-  h2 { text-align: center; }
-  #map { height: 600px; width: 100%; border-radius: 10px; }
-  #event-list { max-height: 300px; overflow-y: auto; margin-top: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 5px; }
-  .event-item { padding: 6px; border-bottom: 1px solid #eee; }
-  .event-item:hover { background-color: #f5f5f5; cursor: pointer; }
-  #last-update { margin-top: 10px; font-weight: bold; }
-</style>
-</head>
-<body>
-
-<h2>🚦 台灣即時交通事件地圖</h2>
-<div id="map"></div>
-<div id="last-update">上次更新時間: --</div>
-<div id="event-list"></div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-let map = L.map('map').setView([23.7, 120.9], 7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+// 指定 GitHub Pages 上 JSON 的完整 URL
+const jsonURL = "https://jcai3337-PETER.github.io/trafficmonitoring/road_data.json";
 
-let markers = [];
-
-// 指定分類與顏色
-const categories = {
-  "事故": "red",
-  "交通管制": "purple",
-  "交通障礙": "yellow",
-  "其他": "blue",
-  "災變": "brown",
-  "號誌故障": "gray",
-  "道路施工": "orange",
-  "阻塞": "black"
-};
-
-// 讀取本地 JSON
 async function loadEvents() {
   try {
-    const response = await fetch('road_data.json'); // 與 HTML 同一資料夾
+    const response = await fetch(jsonURL);
+    if (!response.ok) throw new Error("Fetch 失敗");
     const events = await response.json();
 
     markers.forEach(m => map.removeLayer(m));
@@ -102,13 +62,12 @@ async function loadEvents() {
     document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
 
   } catch (err) {
-    console.error("讀取本地 JSON 失敗:", err);
-    alert("無法讀取 road_data.json，請確認檔案與 HTML 在同一資料夾。");
+    console.error("讀取 JSON 失敗:", err);
+    alert("無法讀取 JSON，請確認 GitHub Pages URL 正確。");
   }
 }
 
 // 初始化
 loadEvents();
+setInterval(loadEvents, 10000); // 每 10 秒自動更新
 </script>
-</body>
-</html>
