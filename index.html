@@ -1,6 +1,6 @@
 <script>
-// 指定 GitHub Pages 上 JSON 的完整 URL
-const jsonURL = "https://jcai3337-PETER.github.io/trafficmonitoring/road_data.json";
+// 指定 JSON 的相對路徑（與 index.html 同資料夾）
+const jsonURL = "./road_data.json";
 
 async function loadEvents() {
   try {
@@ -8,8 +8,10 @@ async function loadEvents() {
     if (!response.ok) throw new Error("Fetch 失敗");
     const events = await response.json();
 
+    // 清除舊的 marker
     markers.forEach(m => map.removeLayer(m));
     markers = [];
+
     const eventListDiv = document.getElementById('event-list');
     eventListDiv.innerHTML = '';
 
@@ -63,7 +65,7 @@ async function loadEvents() {
 
   } catch (err) {
     console.error("讀取 JSON 失敗:", err);
-    alert("無法讀取 JSON，請確認 GitHub Pages URL 正確。");
+    alert("無法讀取 JSON，請確認 JSON 與 HTML 在同一個資料夾。");
   }
 }
 
@@ -71,4 +73,3 @@ async function loadEvents() {
 loadEvents();
 setInterval(loadEvents, 10000); // 每 10 秒自動更新
 </script>
-
