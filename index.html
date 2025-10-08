@@ -1,3 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>即時交通事件地圖</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  body { font-family: "Microsoft JhengHei", sans-serif; margin: 20px; }
+  h2 { text-align: center; }
+  #map { height: 600px; width: 100%; border-radius: 10px; }
+  #event-list { max-height: 300px; overflow-y: auto; margin-top: 10px; border: 1px solid #ccc; border-radius: 6px; padding: 5px; }
+  .event-item { padding: 6px; border-bottom: 1px solid #eee; }
+  .event-item:hover { background-color: #f5f5f5; cursor: pointer; }
+  #last-update { margin-top: 10px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>🚦 台灣即時交通事件地圖</h2>
+<div id="map"></div>
+<div id="last-update">上次更新時間: --</div>
+<div id="event-list"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 let map = L.map('map').setView([23.7, 120.9], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -16,20 +40,19 @@ const categories = {
   "阻塞": "black"
 };
 
-const GITHUB_REPO_API = "https://api.github.com/repos/jcai3337-PETER/trafficmonitoring/contents/road_data.json";
-
 async function loadEvents() {
   try {
-    // 1️⃣ 取得 JSON 檔案本身內容
+    // GitHub Pages 上 JSON 路徑
     const response = await fetch("./road_data.json");
     if (!response.ok) throw new Error("讀取 JSON 失敗");
     const events = await response.json();
 
-    // 2️⃣ 清除舊標記
+    // 清除舊標記
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     const eventListDiv = document.getElementById('event-list');
     eventListDiv.innerHTML = '';
+    let lastUpdateTime = "--";
 
     events.forEach(event => {
       const lat = parseFloat(event.y1);
@@ -67,22 +90,20 @@ async function loadEvents() {
       div.innerHTML = `<span style="color:${color};font-weight:bold">${category}</span> - ${event.comment || "無描述"} <small>(${event.happendate} ${event.happentime})</small> <i>[${event.srcdetail || "未知"}]</i>`;
       div.onclick = () => marker.openPopup();
       eventListDiv.appendChild(div);
+
+      lastUpdateTime = event.modDttm || lastUpdateTime;
     });
 
-    // 3️⃣ 取得 GitHub 上 JSON 的最後更新時間
-    const githubResp = await fetch(GITHUB_REPO_API);
-    if (!githubResp.ok) throw new Error("無法取得 GitHub 檔案資訊");
-    const githubData = await githubResp.json();
-    const updatedAt = new Date(githubData.git_url ? githubData.git_url : githubData.download_url); // fallback
-    // 另一種方法是用 githubData.commit.commit.author.date 需要額外呼叫 commits API
-    document.getElementById('last-update').innerText = "上次更新時間 (GitHub): " + githubData.git_url;
+    document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
 
   } catch (err) {
     console.error(err);
-    alert("無法讀取 JSON 或 GitHub 資料。");
+    alert("無法讀取 JSON，請確認 JSON 與 HTML 已 push 到 GitHub Pages 並在同一個資料夾。");
   }
 }
 
 // 初始化
 loadEvents();
 </script>
+</body>
+</html>
