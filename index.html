@@ -40,9 +40,9 @@ const categories = {
   "阻塞": "black"
 };
 
+// 讀取 JSON 並更新地圖
 async function loadEvents() {
   try {
-    // GitHub Pages 上 JSON 路徑
     const response = await fetch("./road_data.json");
     if (!response.ok) throw new Error("讀取 JSON 失敗");
     const events = await response.json();
@@ -52,7 +52,6 @@ async function loadEvents() {
     markers = [];
     const eventListDiv = document.getElementById('event-list');
     eventListDiv.innerHTML = '';
-    let lastUpdateTime = "--";
 
     events.forEach(event => {
       const lat = parseFloat(event.y1);
@@ -90,11 +89,11 @@ async function loadEvents() {
       div.innerHTML = `<span style="color:${color};font-weight:bold">${category}</span> - ${event.comment || "無描述"} <small>(${event.happendate} ${event.happentime})</small> <i>[${event.srcdetail || "未知"}]</i>`;
       div.onclick = () => marker.openPopup();
       eventListDiv.appendChild(div);
-
-      lastUpdateTime = event.modDttm || lastUpdateTime;
     });
 
-    document.getElementById('last-update').innerText = "上次更新時間: " + lastUpdateTime;
+    // 設定 HTML 上次讀取時間
+    const now = new Date();
+    document.getElementById('last-update').innerText = "上次更新時間: " + now.toLocaleString();
 
   } catch (err) {
     console.error(err);
@@ -104,6 +103,9 @@ async function loadEvents() {
 
 // 初始化
 loadEvents();
+
+// 每 10 分鐘自動更新一次 (600000 毫秒)
+setInterval(loadEvents, 600000);
 </script>
 </body>
 </html>
